@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth import login, logout
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -12,11 +13,14 @@ from .serializers import LoginSerializer, UserSerializer
 def login_view(request):
     """
     User login endpoint.
-    Returns authentication token and user details on success.
+    Sets session cookie and returns authentication token.
     """
     serializer = LoginSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.validated_data['user']
+        # Set session cookie for Django's @login_required
+        login(request, user)
+        # Also return token for API calls
         token, created = Token.objects.get_or_create(user=user)
         return Response({
             'token': token.key,
@@ -30,9 +34,13 @@ def login_view(request):
 def logout_view(request):
     """
     User logout endpoint.
-    Deletes the user's authentication token.
+    Clears session and deletes authentication token.
     """
-    request.user.auth_token.delete()
+    # Delete token
+    if hasattr(request.user, 'auth_token'):
+        request.user.auth_token.delete()
+    # Clear session
+    logout(request)
     return Response({'message': 'Successfully logged out.'}, status=status.HTTP_200_OK)
 
 

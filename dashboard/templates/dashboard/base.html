@@ -81,6 +81,85 @@
             border-bottom: 1px solid #f3f4f6;
         }
         .dark .card-header { border-color: #1f2937; }
+
+        /* Badge - status labels */
+        .badge {
+            display: inline-flex;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 0.25rem;
+            border: 1px solid;
+        }
+        .badge-pending {
+            background: #fffbeb;
+            color: #b45309;
+            border-color: #fde68a;
+        }
+        .dark .badge-pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+        .badge-valid {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #a7f3d0;
+        }
+        .dark .badge-valid {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .badge-spam {
+            background: #fef2f2;
+            color: #be123c;
+            border-color: #fecaca;
+        }
+        .dark .badge-spam {
+            background: rgba(244, 63, 94, 0.1);
+            color: #fb7185;
+            border-color: rgba(244, 63, 94, 0.3);
+        }
+
+        /* Action button - small clickable buttons */
+        .btn-action {
+            display: inline-flex;
+            justify-content: center;
+            min-width: 3.5rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 0.25rem;
+            border: 1px solid;
+            transition: background-color 0.15s ease;
+            cursor: pointer;
+        }
+        .btn-action-valid {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #a7f3d0;
+        }
+        .btn-action-valid:hover { background: #d1fae5; }
+        .dark .btn-action-valid {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .dark .btn-action-valid:hover { background: rgba(16, 185, 129, 0.2); }
+
+        .btn-action-spam {
+            background: #fef2f2;
+            color: #be123c;
+            border-color: #fecaca;
+        }
+        .btn-action-spam:hover { background: #fee2e2; }
+        .dark .btn-action-spam {
+            background: rgba(244, 63, 94, 0.1);
+            color: #fb7185;
+            border-color: rgba(244, 63, 94, 0.3);
+        }
+        .dark .btn-action-spam:hover { background: rgba(244, 63, 94, 0.2); }
     </style>
     <script>
         // Initialize theme before page render to avoid flash

@@ -116,9 +116,10 @@
             return response.json();
         })
         .then(data => {
-            allLeads = data;
-            updateStats(data);
-            displayLeads(data);
+            // Sort by creation time, newest first
+            allLeads = data.sort((a, b) => new Date(b.creation_time) - new Date(a.creation_time));
+            updateStats(allLeads);
+            displayLeads(allLeads);
         })
         .catch(error => {
             console.error('Error:', error);
@@ -139,7 +140,16 @@
 
     function formatDate(dateString) {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)} hr ago`;
+        if (seconds < 172800) return 'Yesterday';
+        if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+        if (seconds < 2592000) return `${Math.floor(seconds / 604800)} weeks ago`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
 
     function displayLeads(leads) {
@@ -158,28 +168,16 @@
                 <td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate" title="${lead.intent || ''}">${lead.intent || '-'}</td>
                 <td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400">${formatDate(lead.creation_time)}</td>
                 <td class="px-6 py-3.5">
-                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded border ${
-                        lead.status === 'VALID' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
-                        lead.status === 'SPAM' ? 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' :
-                        'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-                    }">
-                        ${lead.status}
-                    </span>
+                    <span class="badge badge-${lead.status.toLowerCase()}">${lead.status.charAt(0) + lead.status.slice(1).toLowerCase()}</span>
                     ${lead.note ? `<div class="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">${lead.note}</div>` : ''}
                 </td>
-                <td class="px-6 py-3.5 text-sm">
+                <td class="px-6 py-3.5">
                     ${(lead.status === 'PENDING' && userPermissions.can_edit_leads) ? `
                         <div class="flex space-x-2">
-                            <button onclick="openStatusModal(${lead.id}, 'VALID')"
-                                    class="px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors">
-                                Valid
-                            </button>
-                            <button onclick="openStatusModal(${lead.id}, 'SPAM')"
-                                    class="px-2.5 py-1 text-xs font-medium text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 rounded-md hover:bg-rose-100 dark:hover:bg-rose-900 transition-colors">
-                                Spam
-                            </button>
+                            <button onclick="openStatusModal(${lead.id}, 'VALID')" class="btn-action btn-action-valid">Valid</button>
+                            <button onclick="openStatusModal(${lead.id}, 'SPAM')" class="btn-action btn-action-spam">Spam</button>
                         </div>
-                    ` : '<span class="text-gray-300 dark:text-gray-600">-</span>'}
+                    ` : '<span class="text-xs text-gray-400 dark:text-gray-600">-</span>'}
                 </td>
             </tr>
         `).join('');
