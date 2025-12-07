@@ -7,7 +7,9 @@ from account.models import BaseModel, User
 
 # Choices
 SOURCE_TYPE_CHOICES = [
-        ('META_ADS', 'Facebook/Instagram Ads'),
+        ('META_ADS', 'Facebook Ads'),
+        ('INSTA_ADS', 'Instagram Ads'),
+        ('WHATSAPP_ADS', 'WhatsApp Ads'),
         ('CHAT', 'AskRivo Chat'),
         ('OTHER', 'Other'),
     ]
