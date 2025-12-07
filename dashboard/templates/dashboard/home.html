@@ -1,0 +1,33 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Rivo OS{% endblock %}
+
+{% block content %}
+{% include 'dashboard/navigation.html' %}
+
+<div id="main-content" class="min-h-screen bg-gray-50 dark:bg-gray-950 transition-all duration-200">
+    <main class="page-container">
+        <div class="fade-in flex items-center justify-center" style="min-height: calc(100vh - 200px);">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Welcome to Rivo OS</h2>
+                <p id="user-name" class="text-lg text-gray-600 dark:text-gray-400 mb-1"></p>
+                <p id="user-email" class="text-sm text-gray-500 dark:text-gray-500"></p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="{% static 'dashboard/js/permissions.js' %}"></script>
+<script>
+    permissionManager.loadPermissions().then(data => {
+        if (data) {
+            document.getElementById('user-name').textContent = data.first_name || data.username;
+            document.getElementById('user-email').textContent = data.email;
+            navigationManager.renderNavigation(data.permissions);
+            navigationManager.setActivePage('dashboard');
+            navigationManager.setUserInfo(data);
+        }
+    });
+</script>
+{% endblock %}
