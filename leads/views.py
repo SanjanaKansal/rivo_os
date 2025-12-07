@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -85,10 +86,12 @@ class SourceViewSet(viewsets.ModelViewSet):
 
                 # Assign to user
                 count = 0
+                assignment_time = timezone.now()
                 for lead in pending_leads:
                     lead.assigned_to_id = assigned_to_id
                     lead.assigned_by = request.user
-                    lead.save(update_fields=['assigned_to', 'assigned_by'])
+                    lead.assigned_at = assignment_time
+                    lead.save(update_fields=['assigned_to', 'assigned_by', 'assigned_at'])
                     count += 1
 
             return Response({

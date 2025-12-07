@@ -7,12 +7,12 @@ from account.models import BaseModel, User
 
 # Choices
 SOURCE_TYPE_CHOICES = [
-        ('META_ADS', 'Facebook Ads'),
-        ('INSTA_ADS', 'Instagram Ads'),
-        ('WHATSAPP_ADS', 'WhatsApp Ads'),
-        ('CHAT', 'AskRivo Chat'),
-        ('OTHER', 'Other'),
-    ]
+    ('META_ADS', 'Facebook Ads'),
+    ('INSTA_ADS', 'Instagram Ads'),
+    ('WHATSAPP_ADS', 'WhatsApp Ads'),
+    ('CHAT', 'AskRivo Chat'),
+    ('OTHER', 'Other'),
+]
 
 LIFECYCLE_CHOICES = [
     ('INCUBATION', 'Incubation - Testing'),
@@ -80,8 +80,10 @@ class RawLead(BaseModel):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     note = models.TextField(blank=True, null=True, help_text='Note added when marking lead as valid/spam')
     creation_time = models.DateTimeField(default=timezone.now)
+    # Assignment fields
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_leads')
     assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='leads_assigned_by_me')
+    assigned_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -89,7 +91,6 @@ class RawLead(BaseModel):
             models.Index(fields=['phone']),
             models.Index(fields=['status']),
             models.Index(fields=['assigned_to']),
-            models.Index(fields=['assigned_by']),
         ]
 
     def __str__(self):

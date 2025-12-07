@@ -46,7 +46,7 @@
 
             <div class="overflow-x-auto">
                 <table class="w-full">
-                    <thead>
+                    <thead id="leads-thead">
                         <tr class="border-b border-gray-100 dark:border-gray-800">
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Name</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Phone</th>
@@ -60,7 +60,7 @@
                     </thead>
                     <tbody id="leads-tbody" class="divide-y divide-gray-100 dark:divide-gray-800">
                         <tr>
-                            <td colspan="8" class="px-6 py-8 text-center text-sm text-gray-400 dark:text-gray-500">Loading...</td>
+                            <td colspan="10" class="px-6 py-8 text-center text-sm text-gray-400 dark:text-gray-500">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -85,6 +85,7 @@
 <script>
     let allLeads = [];
     let userPermissions = {};
+    let currentUserId = null;
     let currentLeadId = null;
     let currentStatus = null;
 
@@ -92,6 +93,7 @@
     permissionManager.loadPermissions().then(data => {
         if (data) {
             userPermissions = data.permissions || {};
+            currentUserId = data.id;
 
             // Setup navigation
             navigationManager.renderNavigation(data.permissions);
@@ -154,12 +156,59 @@
 
     function displayLeads(leads) {
         const tbody = document.getElementById('leads-tbody');
+        const thead = document.getElementById('leads-thead');
+
+        // Check if we need to show assigned_to/assigned_by columns
+        const showAssignedTo = leads.some(lead => lead.assigned_to_details && lead.assigned_to !== currentUserId);
+        const showAssignedBy = leads.some(lead => lead.assigned_by_details && lead.assigned_by !== currentUserId);
+
+        const colCount = 8 + (showAssignedTo ? 1 : 0) + (showAssignedBy ? 1 : 0);
+
+        // Render headers
+        thead.innerHTML = `
+            <tr class="border-b border-gray-100 dark:border-gray-800">
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Name</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Phone</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Email</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Source</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Intent</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Created</th>
+                ${showAssignedTo ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Assigned To</th>' : ''}
+                ${showAssignedBy ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Assigned By</th>' : ''}
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Actions</th>
+            </tr>
+        `;
+
         if (leads.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-8 text-center text-sm text-gray-400">No leads found</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${colCount}" class="px-6 py-8 text-center text-sm text-gray-400">No leads found</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = leads.map(lead => `
+        tbody.innerHTML = leads.map(lead => {
+            // Get assigned_to name
+            let assignedToHtml = '';
+            if (showAssignedTo) {
+                const name = lead.assigned_to_details && lead.assigned_to !== currentUserId
+                    ? (lead.assigned_to_details.first_name && lead.assigned_to_details.last_name
+                        ? `${lead.assigned_to_details.first_name} ${lead.assigned_to_details.last_name}`
+                        : lead.assigned_to_details.username)
+                    : '-';
+                assignedToHtml = `<td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400">${name}</td>`;
+            }
+
+            // Get assigned_by name
+            let assignedByHtml = '';
+            if (showAssignedBy) {
+                const name = lead.assigned_by_details && lead.assigned_by !== currentUserId
+                    ? (lead.assigned_by_details.first_name && lead.assigned_by_details.last_name
+                        ? `${lead.assigned_by_details.first_name} ${lead.assigned_by_details.last_name}`
+                        : lead.assigned_by_details.username)
+                    : '-';
+                assignedByHtml = `<td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400">${name}</td>`;
+            }
+
+            return `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 <td class="px-6 py-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">${lead.name || '-'}</td>
                 <td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400">${lead.phone}</td>
@@ -167,6 +216,8 @@
                 <td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400">${lead.source_details?.name || '-'}</td>
                 <td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate" title="${lead.intent || ''}">${lead.intent || '-'}</td>
                 <td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400">${formatDate(lead.creation_time)}</td>
+                ${assignedToHtml}
+                ${assignedByHtml}
                 <td class="px-6 py-3.5">
                     <span class="badge badge-${lead.status.toLowerCase()}">${lead.status.charAt(0) + lead.status.slice(1).toLowerCase()}</span>
                     ${lead.note ? `<div class="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">${lead.note}</div>` : ''}
@@ -180,7 +231,7 @@
                     ` : '<span class="text-xs text-gray-400 dark:text-gray-600">-</span>'}
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     }
 
     function filterLeads() {
