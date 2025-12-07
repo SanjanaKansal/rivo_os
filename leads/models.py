@@ -11,6 +11,7 @@ SOURCE_TYPE_CHOICES = [
     ('INSTA_ADS', 'Instagram Ads'),
     ('WHATSAPP_ADS', 'WhatsApp Ads'),
     ('CHAT', 'AskRivo Chat'),
+    ('PARTNER_HUB', 'Partner Hub'),
     ('OTHER', 'Other'),
 ]
 
