@@ -9,19 +9,30 @@ class UserSerializer(serializers.ModelSerializer):
     Returns basic user information and permissions for API responses.
     """
     permissions = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'permissions')
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'permissions')
+
+    def get_full_name(self, obj):
+        """Get user's readable display name."""
+        if obj.get_full_name():
+            return obj.get_full_name()
+        if obj.username:
+            return obj.username.replace('.', ' ').replace('_', ' ').title()
+        return obj.email or str(obj.id)
 
     def get_permissions(self, obj):
-        """Get user's permissions."""
-        return {
-            'can_edit_leads': obj.has_perm('leads.change_rawlead'),
-            'can_view_leads': obj.has_perm('leads.view_rawlead'),
-            'can_view_sources': obj.has_perm('leads.view_source'),
-            'can_change_sources': obj.has_perm('leads.change_source'),
-        }
+        """Get all user permissions dynamically from Django's permission system."""
+        perms = {}
+        # Get all permissions from user (includes role/group permissions)
+        all_perms = obj.get_all_permissions()
+        for perm in all_perms:
+            # Convert 'app.codename' to 'app_codename' for JS compatibility
+            key = perm.replace('.', '_')
+            perms[key] = True
+        return perms
 
 
 class LoginSerializer(serializers.Serializer):

@@ -1,0 +1,355 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Pipeline - Rivo OS{% endblock %}
+
+{% block content %}
+{% include 'dashboard/navigation.html' %}
+
+<div id="main-content" class="min-h-screen bg-gray-50 dark:bg-gray-950 transition-all duration-200">
+    <main class="h-[calc(100vh-3.5rem)] lg:h-screen flex flex-col" style="padding: var(--space-page);">
+        <!-- Header with filters and view toggle -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-3">
+                <!-- Stage Filter -->
+                <select id="stage-filter" class="form-select w-auto">
+                    <option value="">All Stages</option>
+                </select>
+                <!-- Search -->
+                <div class="relative">
+                    <input type="text" id="search-input" placeholder="Search name or phone..." class="form-input pl-9 w-48">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <!-- View Toggle -->
+                <div class="flex bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-1">
+                    <button id="btn-ticker" class="view-btn active" data-view="ticker">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                        </svg>
+                        <span>Ticker</span>
+                    </button>
+                    <button id="btn-kanban" class="view-btn" data-view="kanban">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/>
+                        </svg>
+                        <span>Kanban</span>
+                    </button>
+                </div>
+                <!-- Refresh -->
+                <button id="refresh-btn" class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-800" title="Refresh">
+                    <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div id="content-area" class="flex-1 overflow-hidden">
+            <div class="px-6 py-12 text-center text-sm text-gray-400">Loading...</div>
+        </div>
+    </main>
+</div>
+
+<style>
+/* Pipeline-specific styles */
+
+/* Ticker view */
+.ticker-table { width: 100%; }
+.ticker-row {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    align-items: center;
+    border-bottom: 1px solid var(--color-border-light);
+}
+.ticker-row:hover { background: var(--color-bg); }
+.ticker-header {
+    background: var(--color-bg);
+    font-weight: 500;
+}
+.ticker-header:hover { background: var(--color-bg); }
+
+/* Kanban view */
+.kanban-board {
+    display: flex;
+    gap: 0.75rem;
+    height: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+.kanban-column {
+    flex: 0 0 280px;
+    background: var(--color-bg);
+    border-radius: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.kanban-header {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.kanban-count {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.125rem 0.5rem;
+    background: var(--color-border);
+    color: var(--color-text-secondary);
+    border-radius: 9999px;
+}
+.kanban-cards {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.kanban-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: box-shadow 150ms;
+    overflow: hidden;
+}
+.kanban-card:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.dark .kanban-card:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.kanban-card-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.kanban-card-phone {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.kanban-card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    gap: 0.5rem;
+    min-width: 0;
+}
+.kanban-card-meta span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex-shrink: 1;
+}
+.kanban-card-meta span:first-child {
+    flex-shrink: 0;
+}
+.kanban-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+#content-area .kanban-board { height: 100%; }
+</style>
+
+<script src="{% static 'dashboard/js/permissions.js' %}"></script>
+<script src="{% static 'dashboard/js/components.js' %}"></script>
+<script>
+// Stage to badge class mapping
+const stageBadgeClass = {
+    'LEAD_IN': 'badge-lead_in',
+    'QUALIFIED': 'badge-qualified',
+    'PROCESSING': 'badge-processing',
+    'SUBMITTED': 'badge-submitted',
+    'DISBURSED': 'badge-disbursed',
+    'LOST': 'badge-lost',
+    'REJECTED': 'badge-rejected'
+};
+
+const state = {
+    files: [],
+    stages: [],
+    view: 'ticker',
+    stageFilter: '',
+    search: '',
+    permissions: {}
+};
+
+permissionManager.loadPermissions().then(data => {
+    if (!data) return;
+    state.permissions = data.permissions || {};
+    navigationManager.renderNavigation(data.permissions);
+    navigationManager.setActivePage('pipeline');
+    navigationManager.setUserInfo(data);
+    loadData();
+});
+
+async function loadData() {
+    const headers = { 'Authorization': `Token ${permissionManager.token}` };
+    try {
+        const [filesRes, stagesRes] = await Promise.all([
+            fetch('/files/api/files/', { headers }),
+            fetch('/files/api/files/stages/', { headers })
+        ]);
+        state.files = await filesRes.json();
+        const stagesData = await stagesRes.json();
+        state.stages = stagesData.stages || [];
+        renderStageFilter();
+        renderContent();
+    } catch (e) {
+        console.error(e);
+        document.getElementById('content-area').innerHTML = UI.empty('Error loading data');
+    }
+}
+
+function renderStageFilter() {
+    const select = document.getElementById('stage-filter');
+    select.innerHTML = '<option value="">All Stages</option>' +
+        state.stages.map(s => `<option value="${s.value}">${s.label} (${s.count})</option>`).join('');
+}
+
+function getFilteredFiles() {
+    let files = state.files;
+    if (state.stageFilter) {
+        files = files.filter(f => f.current_stage === state.stageFilter);
+    }
+    if (state.search) {
+        const q = state.search.toLowerCase();
+        files = files.filter(f =>
+            (f.name && f.name.toLowerCase().includes(q)) ||
+            (f.phone && f.phone.includes(q))
+        );
+    }
+    return files;
+}
+
+function renderContent() {
+    const area = document.getElementById('content-area');
+    if (state.view === 'ticker') {
+        area.innerHTML = renderTicker();
+    } else {
+        area.innerHTML = renderKanban();
+    }
+}
+
+function renderTicker() {
+    const files = getFilteredFiles();
+    if (!files.length) return UI.empty('No files found');
+
+    const header = `<div class="ticker-row ticker-header">
+        <div class="text-xs text-gray-500 uppercase">Name</div>
+        <div class="text-xs text-gray-500 uppercase">Phone</div>
+        <div class="text-xs text-gray-500 uppercase">Stage</div>
+        <div class="text-xs text-gray-500 uppercase">Identity</div>
+        <div class="text-xs text-gray-500 uppercase">Created</div>
+    </div>`;
+
+    const rows = files.map(f => `
+        <div class="ticker-row">
+            <div class="text-sm font-medium text-gray-900 dark:text-gray-200 truncate">${f.name || '-'}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">${f.phone || '-'}</div>
+            <div><span class="badge ${stageBadgeClass[f.current_stage] || ''}">${f.stage_display}</span></div>
+            <div class="text-sm ${f.identity_status?.is_complete ? 'identity-complete' : 'identity-incomplete'}">
+                ${f.identity_status?.is_complete ? '✓ Complete' : `${f.identity_status?.completed_fields || 0}/4 fields`}
+            </div>
+            <div class="text-xs text-gray-500">${UI.formatTime(f.created_at)}</div>
+        </div>
+    `).join('');
+
+    return `<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+        <div class="ticker-table">${header}${rows}</div>
+    </div>`;
+}
+
+function renderKanban() {
+    const files = getFilteredFiles();
+
+    // Group files by stage
+    const grouped = {};
+    state.stages.forEach(s => grouped[s.value] = []);
+    files.forEach(f => {
+        if (grouped[f.current_stage]) {
+            grouped[f.current_stage].push(f);
+        }
+    });
+
+    const columns = state.stages.map(s => {
+        const stageFiles = grouped[s.value] || [];
+        const cards = stageFiles.length ? stageFiles.map(f => `
+            <div class="kanban-card">
+                <div class="kanban-card-name">${f.name || '-'}</div>
+                <div class="kanban-card-phone">${f.phone || '-'}</div>
+                <div class="kanban-card-meta">
+                    <span class="${f.identity_status?.is_complete ? 'identity-complete' : 'identity-incomplete'}">
+                        ${f.identity_status?.is_complete ? '✓ KYC' : `${f.identity_status?.completed_fields || 0}/4 KYC`}
+                    </span>
+                    <span class="text-gray-400">${UI.formatTime(f.created_at)}</span>
+                </div>
+            </div>
+        `).join('') : '<div class="kanban-empty">No files</div>';
+
+        return `<div class="kanban-column">
+            <div class="kanban-header">
+                <span>${s.label}</span>
+                <span class="kanban-count">${stageFiles.length}</span>
+            </div>
+            <div class="kanban-cards">${cards}</div>
+        </div>`;
+    }).join('');
+
+    return `<div class="kanban-board">${columns}</div>`;
+}
+
+// Event listeners
+document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.view = btn.dataset.view;
+        renderContent();
+    });
+});
+
+document.getElementById('stage-filter').addEventListener('change', (e) => {
+    state.stageFilter = e.target.value;
+    renderContent();
+});
+
+let searchTimeout;
+document.getElementById('search-input').addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        state.search = e.target.value;
+        renderContent();
+    }, 300);
+});
+
+document.getElementById('refresh-btn').addEventListener('click', () => UI.refreshBtn('refresh-icon', loadData));
+</script>
+{% endblock %}

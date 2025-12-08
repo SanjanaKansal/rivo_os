@@ -1,0 +1,523 @@
+/**
+ * Rivo OS Design System - Components
+ * Centralized CSS for all reusable UI components
+ *
+ * Typography: Inter (primary), system-ui (fallback)
+ * Font sizes: 0.75rem (12px), 0.875rem (14px), 1rem (16px), 1.125rem (18px)
+ */
+
+/* ==========================================================================
+   CSS Variables / Design Tokens
+   ========================================================================== */
+:root {
+    /* Typography */
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    /* Spacing */
+    --space-page: 1.5rem;
+    --space-section: 1.5rem;
+    --space-card: 1.25rem;
+    --space-cell: 1rem;
+    --space-cell-y: 0.75rem;
+
+    /* Colors - Light */
+    --color-bg: #f9fafb;
+    --color-surface: #ffffff;
+    --color-border: #e5e7eb;
+    --color-border-light: #f3f4f6;
+    --color-text: #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-muted: #9ca3af;
+
+    /* Status Colors */
+    --color-pending-bg: #fffbeb;
+    --color-pending-text: #b45309;
+    --color-pending-border: #fde68a;
+
+    --color-valid-bg: #ecfdf5;
+    --color-valid-text: #047857;
+    --color-valid-border: #a7f3d0;
+
+    --color-spam-bg: #fef2f2;
+    --color-spam-text: #be123c;
+    --color-spam-border: #fecaca;
+
+    /* Stage Colors */
+    --color-lead-in-bg: #dbeafe;
+    --color-lead-in-text: #1e40af;
+    --color-lead-in-border: #93c5fd;
+    --color-qualified-bg: #fef3c7;
+    --color-qualified-text: #92400e;
+    --color-qualified-border: #fcd34d;
+    --color-processing-bg: #e0e7ff;
+    --color-processing-text: #4338ca;
+    --color-processing-border: #a5b4fc;
+    --color-submitted-bg: #fce7f3;
+    --color-submitted-text: #9d174d;
+    --color-submitted-border: #f9a8d4;
+    --color-disbursed-bg: #d1fae5;
+    --color-disbursed-text: #065f46;
+    --color-disbursed-border: #6ee7b7;
+    --color-lost-bg: #f3f4f6;
+    --color-lost-text: #6b7280;
+    --color-lost-border: #d1d5db;
+    --color-rejected-bg: #fee2e2;
+    --color-rejected-text: #991b1b;
+    --color-rejected-border: #fca5a5;
+}
+
+@media (min-width: 1024px) {
+    :root {
+        --space-page: 2rem;
+    }
+}
+
+/* Dark mode variables */
+.dark {
+    --color-bg: #030712;
+    --color-surface: #111827;
+    --color-border: #1f2937;
+    --color-border-light: #1f2937;
+    --color-text: #f3f4f6;
+    --color-text-secondary: #9ca3af;
+    --color-text-muted: #6b7280;
+
+    --color-pending-bg: rgba(245, 158, 11, 0.1);
+    --color-pending-text: #fbbf24;
+    --color-pending-border: rgba(245, 158, 11, 0.3);
+
+    --color-valid-bg: rgba(16, 185, 129, 0.1);
+    --color-valid-text: #34d399;
+    --color-valid-border: rgba(16, 185, 129, 0.3);
+
+    --color-spam-bg: rgba(244, 63, 94, 0.1);
+    --color-spam-text: #fb7185;
+    --color-spam-border: rgba(244, 63, 94, 0.3);
+
+    --color-lead-in-bg: rgba(59, 130, 246, 0.15);
+    --color-lead-in-text: #93c5fd;
+    --color-lead-in-border: rgba(59, 130, 246, 0.3);
+    --color-qualified-bg: rgba(251, 191, 36, 0.15);
+    --color-qualified-text: #fcd34d;
+    --color-qualified-border: rgba(251, 191, 36, 0.3);
+    --color-processing-bg: rgba(99, 102, 241, 0.15);
+    --color-processing-text: #a5b4fc;
+    --color-processing-border: rgba(99, 102, 241, 0.3);
+    --color-submitted-bg: rgba(236, 72, 153, 0.15);
+    --color-submitted-text: #f9a8d4;
+    --color-submitted-border: rgba(236, 72, 153, 0.3);
+    --color-disbursed-bg: rgba(34, 197, 94, 0.15);
+    --color-disbursed-text: #6ee7b7;
+    --color-disbursed-border: rgba(34, 197, 94, 0.3);
+    --color-lost-bg: rgba(107, 114, 128, 0.15);
+    --color-lost-text: #9ca3af;
+    --color-lost-border: rgba(107, 114, 128, 0.3);
+    --color-rejected-bg: rgba(239, 68, 68, 0.15);
+    --color-rejected-text: #fca5a5;
+    --color-rejected-border: rgba(239, 68, 68, 0.3);
+}
+
+/* ==========================================================================
+   Base & Utilities
+   ========================================================================== */
+
+/* Ensure all elements use Inter font */
+*, *::before, *::after {
+    font-family: var(--font-sans);
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Prevent browser default fonts on inputs/buttons */
+input, button, select, textarea {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.4s ease-out; }
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-card);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+.table-header {
+    padding: var(--space-cell-y) var(--space-cell);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.table-cell {
+    padding: var(--space-cell-y) var(--space-cell);
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+/* ==========================================================================
+   Badges - Unified styling for status/stage labels
+   ========================================================================== */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 0.25rem;
+    border: 1px solid;
+}
+
+/* Status badges */
+.badge-pending {
+    background: var(--color-pending-bg);
+    color: var(--color-pending-text);
+    border-color: var(--color-pending-border);
+}
+
+.badge-valid {
+    background: var(--color-valid-bg);
+    color: var(--color-valid-text);
+    border-color: var(--color-valid-border);
+}
+
+.badge-spam {
+    background: var(--color-spam-bg);
+    color: var(--color-spam-text);
+    border-color: var(--color-spam-border);
+}
+
+/* Stage badges - same styling as status badges and action buttons */
+.badge-lead_in {
+    background: var(--color-lead-in-bg);
+    color: var(--color-lead-in-text);
+    border-color: var(--color-lead-in-border);
+}
+
+.badge-qualified {
+    background: var(--color-qualified-bg);
+    color: var(--color-qualified-text);
+    border-color: var(--color-qualified-border);
+}
+
+.badge-processing {
+    background: var(--color-processing-bg);
+    color: var(--color-processing-text);
+    border-color: var(--color-processing-border);
+}
+
+.badge-submitted {
+    background: var(--color-submitted-bg);
+    color: var(--color-submitted-text);
+    border-color: var(--color-submitted-border);
+}
+
+.badge-disbursed {
+    background: var(--color-disbursed-bg);
+    color: var(--color-disbursed-text);
+    border-color: var(--color-disbursed-border);
+}
+
+.badge-lost {
+    background: var(--color-lost-bg);
+    color: var(--color-lost-text);
+    border-color: var(--color-lost-border);
+}
+
+.badge-rejected {
+    background: var(--color-rejected-bg);
+    color: var(--color-rejected-text);
+    border-color: var(--color-rejected-border);
+}
+
+/* ==========================================================================
+   Action Buttons
+   ========================================================================== */
+.btn-action {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 3.5rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 0.25rem;
+    border: 1px solid;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.btn-action-valid {
+    background: var(--color-valid-bg);
+    color: var(--color-valid-text);
+    border-color: var(--color-valid-border);
+}
+.btn-action-valid:hover {
+    background: #d1fae5;
+}
+.dark .btn-action-valid:hover {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.btn-action-spam {
+    background: var(--color-spam-bg);
+    color: var(--color-spam-text);
+    border-color: var(--color-spam-border);
+}
+.btn-action-spam:hover {
+    background: #fee2e2;
+}
+.dark .btn-action-spam:hover {
+    background: rgba(244, 63, 94, 0.2);
+}
+
+/* ==========================================================================
+   Form Controls
+   ========================================================================== */
+.form-input, .form-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus, .form-select:focus {
+    outline: none;
+    border-color: var(--color-text-secondary);
+    box-shadow: 0 0 0 1px var(--color-text-secondary);
+}
+
+/* ==========================================================================
+   Modals
+   ========================================================================== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+
+.modal-content {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    width: 100%;
+    max-width: 28rem;
+    margin: 1rem;
+}
+
+.modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--color-border-light);
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--color-border-light);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.15s ease;
+}
+
+.btn-primary {
+    background: #111827;
+    color: white;
+}
+.btn-primary:hover { background: #1f2937; }
+.dark .btn-primary {
+    background: #f3f4f6;
+    color: #111827;
+}
+.dark .btn-primary:hover { background: #e5e7eb; }
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+.btn-secondary:hover { background: #e5e7eb; }
+.dark .btn-secondary {
+    background: #374151;
+    color: #d1d5db;
+}
+.dark .btn-secondary:hover { background: #4b5563; }
+
+/* ==========================================================================
+   Quality Bar
+   ========================================================================== */
+.quality-bar {
+    height: 6px;
+    background: var(--color-border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.quality-fill {
+    height: 100%;
+    border-radius: 3px;
+}
+
+/* ==========================================================================
+   Filter Buttons
+   ========================================================================== */
+.filter-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    border-radius: 0.375rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.filter-btn:hover {
+    color: var(--color-text);
+}
+
+.filter-btn.active {
+    background: #111827;
+    color: white;
+}
+.dark .filter-btn.active {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+/* ==========================================================================
+   View Toggle Buttons (Ticker/Kanban)
+   ========================================================================== */
+.view-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    border-radius: 0.375rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: all 150ms;
+}
+
+.view-btn:hover {
+    color: var(--color-text);
+}
+
+.view-btn.active {
+    background: #111827;
+    color: white;
+}
+.dark .view-btn.active {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+/* ==========================================================================
+   Tabs
+   ========================================================================== */
+.tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    cursor: pointer;
+}
+
+.tab-btn:hover {
+    color: var(--color-text);
+}
+
+.tab-btn.active {
+    color: var(--color-text);
+    border-bottom-color: var(--color-text);
+}
+
+.tab-count {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    background: var(--color-border-light);
+    color: var(--color-text-secondary);
+}
+
+.tab-btn.active .tab-count {
+    background: #111827;
+    color: white;
+}
+.dark .tab-btn.active .tab-count {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+/* ==========================================================================
+   Identity Status
+   ========================================================================== */
+.identity-complete {
+    color: #059669;
+}
+.identity-incomplete {
+    color: var(--color-text-secondary);
+}
+.dark .identity-complete {
+    color: #6ee7b7;
+}

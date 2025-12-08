@@ -1,166 +1,27 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Rivo{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'dashboard/css/components.css' %}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // Configure Tailwind for dark mode
         tailwind.config = {
-            darkMode: 'class'
-        }
-    </script>
-    <style>
-        :root {
-            /* Spacing scale */
-            --space-page: 1.5rem;      /* Page padding */
-            --space-section: 1.5rem;   /* Between sections */
-            --space-card: 1.25rem;     /* Inside cards */
-            --space-cell: 1rem;        /* Table cells horizontal */
-            --space-cell-y: 0.75rem;   /* Table cells vertical */
-        }
-        @media (min-width: 1024px) {
-            :root {
-                --space-page: 2rem;
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']
+                    }
+                }
             }
         }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in { animation: fadeIn 0.4s ease-out; }
-
-        /* Theme transitions */
-        *, *::before, *::after {
-            transition: background-color 0.15s ease, border-color 0.15s ease;
-        }
-
-        /* Consistent page container */
-        .page-container {
-            max-width: 80rem;
-            margin: 0 auto;
-            padding: var(--space-page);
-        }
-
-        /* Consistent card styling */
-        .card {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.5rem;
-        }
-        .dark .card {
-            background: #111827;
-            border-color: #1f2937;
-        }
-
-        /* Consistent table styling */
-        .table-header {
-            padding: var(--space-cell-y) var(--space-cell);
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: #6b7280;
-            text-align: left;
-        }
-        .dark .table-header { color: #9ca3af; }
-
-        .table-cell {
-            padding: var(--space-cell-y) var(--space-cell);
-            font-size: 0.875rem;
-            color: #4b5563;
-        }
-        .dark .table-cell { color: #9ca3af; }
-
-        /* Card header */
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: var(--space-card);
-            border-bottom: 1px solid #f3f4f6;
-        }
-        .dark .card-header { border-color: #1f2937; }
-
-        /* Badge - status labels */
-        .badge {
-            display: inline-flex;
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-            font-weight: 500;
-            border-radius: 0.25rem;
-            border: 1px solid;
-        }
-        .badge-pending {
-            background: #fffbeb;
-            color: #b45309;
-            border-color: #fde68a;
-        }
-        .dark .badge-pending {
-            background: rgba(245, 158, 11, 0.1);
-            color: #fbbf24;
-            border-color: rgba(245, 158, 11, 0.3);
-        }
-        .badge-valid {
-            background: #ecfdf5;
-            color: #047857;
-            border-color: #a7f3d0;
-        }
-        .dark .badge-valid {
-            background: rgba(16, 185, 129, 0.1);
-            color: #34d399;
-            border-color: rgba(16, 185, 129, 0.3);
-        }
-        .badge-spam {
-            background: #fef2f2;
-            color: #be123c;
-            border-color: #fecaca;
-        }
-        .dark .badge-spam {
-            background: rgba(244, 63, 94, 0.1);
-            color: #fb7185;
-            border-color: rgba(244, 63, 94, 0.3);
-        }
-
-        /* Action button - small clickable buttons */
-        .btn-action {
-            display: inline-flex;
-            justify-content: center;
-            min-width: 3.5rem;
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-            font-weight: 500;
-            border-radius: 0.25rem;
-            border: 1px solid;
-            transition: background-color 0.15s ease;
-            cursor: pointer;
-        }
-        .btn-action-valid {
-            background: #ecfdf5;
-            color: #047857;
-            border-color: #a7f3d0;
-        }
-        .btn-action-valid:hover { background: #d1fae5; }
-        .dark .btn-action-valid {
-            background: rgba(16, 185, 129, 0.1);
-            color: #34d399;
-            border-color: rgba(16, 185, 129, 0.3);
-        }
-        .dark .btn-action-valid:hover { background: rgba(16, 185, 129, 0.2); }
-
-        .btn-action-spam {
-            background: #fef2f2;
-            color: #be123c;
-            border-color: #fecaca;
-        }
-        .btn-action-spam:hover { background: #fee2e2; }
-        .dark .btn-action-spam {
-            background: rgba(244, 63, 94, 0.1);
-            color: #fb7185;
-            border-color: rgba(244, 63, 94, 0.3);
-        }
-        .dark .btn-action-spam:hover { background: rgba(244, 63, 94, 0.2); }
-    </style>
+    </script>
     <script>
         // Initialize theme before page render to avoid flash
         (function() {
@@ -171,7 +32,7 @@
         })();
     </script>
 </head>
-<body class="min-h-screen transition-colors">
+<body class="min-h-screen font-sans antialiased transition-colors bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
     {% block content %}{% endblock %}
 
     <script>

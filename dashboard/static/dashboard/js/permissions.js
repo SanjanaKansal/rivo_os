@@ -1,21 +1,10 @@
 /**
- * Centralized permission management and utilities for Rivo OS
+ * Permission management for Rivo OS
  */
-
-// Utility: Get CSRF cookie
 function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
+    if (!document.cookie) return null;
+    const match = document.cookie.split(';').find(c => c.trim().startsWith(name + '='));
+    return match ? decodeURIComponent(match.split('=')[1]) : null;
 }
 
 class PermissionManager {
@@ -31,23 +20,21 @@ class PermissionManager {
         }
 
         try {
-            const response = await fetch('/account/api/user/', {
+            const res = await fetch('/account/api/user/', {
                 headers: { 'Authorization': `Token ${this.token}` }
             });
-
-            if (!response.ok) throw new Error('Unauthorized');
-
-            const data = await response.json();
+            if (!res.ok) throw new Error('Unauthorized');
+            const data = await res.json();
             this.permissions = data.permissions || {};
             return data;
-        } catch (error) {
+        } catch (e) {
             localStorage.removeItem('auth_token');
             window.location.href = '/login/';
         }
     }
 
-    hasPermission(permission) {
-        return this.permissions[permission] === true;
+    hasPermission(perm) {
+        return this.permissions[perm] === true;
     }
 
     async logout() {
@@ -65,5 +52,4 @@ class PermissionManager {
     }
 }
 
-// Create global instance
 const permissionManager = new PermissionManager();

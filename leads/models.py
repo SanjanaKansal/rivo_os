@@ -92,6 +92,9 @@ class RawLead(BaseModel):
             models.Index(fields=['phone']),
             models.Index(fields=['status']),
             models.Index(fields=['assigned_to']),
+            models.Index(fields=['assigned_by']),
+            models.Index(fields=['assigned_at']),
+            models.Index(fields=['source', 'status']),
         ]
 
     def __str__(self):
@@ -153,3 +156,47 @@ class RawLead(BaseModel):
                 source.total_leads += 1
 
             source.save()
+
+    def promote_to_file(self, changed_by=None):
+        """
+        Promote this RawLead to File (LEAD_IN stage).
+        Called automatically when status becomes VALID.
+
+        Args:
+            changed_by: User who triggered the promotion (optional)
+
+        Returns:
+            File instance or None if already promoted.
+        """
+        from django.db import transaction
+        from files.models import File, IdentityAtom, FileHistory
+
+        # Check if already promoted
+        if hasattr(self, 'file'):
+            return self.file
+
+        with transaction.atomic():
+            # Create File
+            file = File.objects.create(
+                raw_lead=self,
+                name=self.name or "Unknown",
+                phone=self.phone,
+                email=self.email
+            )
+
+            # Create empty IdentityAtom
+            IdentityAtom.objects.create(
+                file=file,
+                full_legal_name=self.name or ""
+            )
+
+            # Create initial FileHistory entry
+            FileHistory.objects.create(
+                file=file,
+                from_stage=None,
+                to_stage='LEAD_IN',
+                changed_by=changed_by,
+                note='Promoted from valid lead'
+            )
+
+            return file

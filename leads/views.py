@@ -1,49 +1,50 @@
+from collections import defaultdict
+from datetime import timedelta
+
 from django.db import transaction
+from django.db.models import Q, Count, Max, Case, When, IntegerField, OuterRef, Subquery
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, DjangoModelPermissions
+from rest_framework.response import Response
 
-from .models import Source, RawLead
+from .models import Source, RawLead, STATUS_CHOICES
 from .serializers import (
     SourceSerializer, SourceUpdateSerializer, RawLeadSerializer,
     RawLeadStatusSerializer, LeadIngestionSerializer, BulkAssignmentSerializer
 )
 
+DEFAULT_STATUS = STATUS_CHOICES[0][0] if STATUS_CHOICES else 'PENDING'
+
+
+def get_display_name(user):
+    """Get readable display name for user object or dict."""
+    if not user:
+        return '-'
+    if isinstance(user, dict):
+        name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+        return name or user.get('username') or '-'
+    return user.get_full_name() or user.username or user.email or str(user.id)
+
 
 class SourceViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for Source management.
-    - List: View all sources with quality scores (requires view_source permission)
-    - Retrieve: Get source details (requires view_source permission)
-    - Update: Update source lifecycle state and owner (requires change_source permission)
-    - Bulk assign: Assign pending leads to a user
-
-    Uses Django's built-in model permissions.
-    Staff/Superusers see all sources, others see only sources they own.
-    """
+    """ViewSet for Source management."""
     queryset = Source.objects.all()
     permission_classes = [DjangoModelPermissions]
 
     def get_queryset(self):
-        """
-        Filter queryset based on user:
-        - Staff/Superusers can see all sources
-        - All other users see sources they own OR sources with leads assigned to them
-        """
-        from django.db.models import Q
-
         user = self.request.user
+        unassigned_subquery = RawLead.objects.filter(
+            source=OuterRef('pk'), assigned_to__isnull=True
+        ).values('source').annotate(cnt=Count('id')).values('cnt')
 
-        # Staff/superuser can see all
+        qs = Source.objects.annotate(_unassigned_count=Subquery(unassigned_subquery))
+
         if user.is_staff or user.is_superuser:
-            return Source.objects.all()
-
-        # All other users see sources they own OR sources with leads assigned to them
-        return Source.objects.filter(
-            Q(owner=user) | Q(leads__assigned_to=user)
-        ).distinct()
+            return qs
+        return qs.filter(Q(owner=user) | Q(leads__assigned_to=user)).distinct()
 
     def get_serializer_class(self):
         if self.action in ['update', 'partial_update']:
@@ -52,165 +53,224 @@ class SourceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch'])
     def bulk_assign(self, request, pk=None):
-        """
-        Bulk assign pending leads from this source to a user.
-        PATCH /api/sources/{id}/bulk_assign/
-        Body: {"assigned_to_id": <user_id>, "limit": 100}
-
-        Requires change_source permission.
-        """
-        # Check permission manually for custom action
+        """Bulk assign pending leads."""
         if not request.user.has_perm('leads.change_source'):
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You do not have permission to assign leads from this source.")
+            raise PermissionDenied("You do not have permission to assign leads.")
 
         source = self.get_object()
-
         serializer = BulkAssignmentSerializer(data={
             'source_id': source.id,
             'assigned_to_id': request.data.get('assigned_to_id'),
             'limit': request.data.get('limit', 100)
         })
 
-        if serializer.is_valid():
-            assigned_to_id = serializer.validated_data['assigned_to_id']
-            limit = serializer.validated_data['limit']
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            with transaction.atomic():
-                # Get pending leads for this source
-                pending_leads = RawLead.objects.filter(
-                    source=source,
-                    status='PENDING',
-                    assigned_to__isnull=True
-                ).select_for_update()[:limit]
+        with transaction.atomic():
+            lead_ids = list(RawLead.objects.filter(
+                source=source, status=DEFAULT_STATUS, assigned_to__isnull=True
+            ).values_list('id', flat=True)[:serializer.validated_data['limit']])
 
-                # Assign to user
-                count = 0
-                assignment_time = timezone.now()
-                for lead in pending_leads:
-                    lead.assigned_to_id = assigned_to_id
-                    lead.assigned_by = request.user
-                    lead.assigned_at = assignment_time
-                    lead.save(update_fields=['assigned_to', 'assigned_by', 'assigned_at'])
-                    count += 1
+            count = RawLead.objects.filter(id__in=lead_ids).update(
+                assigned_to_id=serializer.validated_data['assigned_to_id'],
+                assigned_by=request.user,
+                assigned_at=timezone.now()
+            )
 
-            return Response({
-                'message': f'Successfully assigned {count} leads',
-                'assigned_count': count
-            }, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': f'Successfully assigned {count} leads', 'assigned_count': count})
 
 
 class RawLeadViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for Lead operations.
-    - List: View assigned leads (requires view_rawlead permission)
-    - Retrieve: Get lead details (requires view_rawlead permission)
-    - Update: Update lead status (requires change_rawlead permission)
-    - update_status: Update lead status with note (requires change_rawlead permission)
-
-    Uses Django's built-in model permissions.
-    Staff/Superusers see all leads, others see only leads assigned to/by them.
-    """
+    """ViewSet for Lead operations."""
     queryset = RawLead.objects.all()
     serializer_class = RawLeadSerializer
     permission_classes = [DjangoModelPermissions]
 
     def get_queryset(self):
-        """
-        Filter queryset based on user:
-        - Staff/Superusers can see all leads
-        - All other users can see leads assigned TO them OR assigned BY them
-        """
-        from django.db.models import Q
-
         user = self.request.user
-
-        # Staff/superuser can see all
+        qs = RawLead.objects.select_related('source', 'assigned_to', 'assigned_by')
         if user.is_staff or user.is_superuser:
-            return RawLead.objects.all()
-
-        # All other users see leads assigned to them OR assigned by them
-        return RawLead.objects.filter(Q(assigned_to=user) | Q(assigned_by=user))
+            return qs
+        return qs.filter(Q(assigned_to=user) | Q(assigned_by=user))
 
     def get_serializer_class(self):
         if self.action in ['update', 'partial_update']:
             return RawLeadStatusSerializer
         return RawLeadSerializer
 
+    def list(self, request, *args, **kwargs):
+        group_by = request.query_params.get('group_by')
+        status_filter = request.query_params.get('status')
+
+        qs = self.get_queryset()
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        if group_by == 'assigned_by':
+            return self._grouped_response(qs)
+        return super().list(request, *args, **kwargs)
+
+    def _grouped_response(self, qs):
+        """Return leads grouped by source."""
+        groups = defaultdict(lambda: {
+            'leads': [], 'latest_assigned_at': None,
+            'latest_assigned_by': None, 'latest_assigned_by_id': None, 'latest_assigned_to': None
+        })
+
+        for lead in qs.order_by('-creation_time'):
+            group = groups[lead.source.name]
+
+            if lead.assigned_at and (group['latest_assigned_at'] is None or lead.assigned_at > group['latest_assigned_at']):
+                group['latest_assigned_at'] = lead.assigned_at
+                group['latest_assigned_by'] = get_display_name(lead.assigned_by)
+                group['latest_assigned_by_id'] = lead.assigned_by_id
+                group['latest_assigned_to'] = get_display_name(lead.assigned_to)
+
+            group['leads'].append({
+                'id': lead.id, 'name': lead.name or '-',
+                'phone': lead.phone, 'intent': lead.intent or '-'
+            })
+
+        sorted_groups = sorted(groups.items(), key=lambda x: x[1]['latest_assigned_at'] or timezone.now(), reverse=True)
+
+        return Response([{
+            'source': name, 'count': len(data['leads']),
+            'assigned_by': data['latest_assigned_by'] or '-',
+            'assigned_by_id': data['latest_assigned_by_id'],
+            'assigned_to': data['latest_assigned_to'] or '-',
+            'assigned_at': data['latest_assigned_at'].isoformat() if data['latest_assigned_at'] else None,
+            'leads': data['leads']
+        } for name, data in sorted_groups])
+
+    @action(detail=False, methods=['get'])
+    def choices(self, request):
+        """Get status choices with counts."""
+        counts = dict(self.get_queryset().values('status').annotate(count=Count('id')).values_list('status', 'count'))
+        statuses = [{'value': v, 'label': l, 'count': counts.get(v, 0)} for v, l in STATUS_CHOICES]
+        return Response({'statuses': statuses, 'default': DEFAULT_STATUS})
+
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
-        """
-        Update lead status.
-        PATCH /api/leads/{id}/update_status/
-        Body: {"status": "VALID" | "SPAM" | "PENDING", "note": "Optional note"}
-
-        Requires change_rawlead permission.
-        """
-        # Check permission manually for custom action
+        """Update lead status. Promotes to File when marked VALID."""
         if not request.user.has_perm('leads.change_rawlead'):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not have permission to update lead status.")
 
         lead = self.get_object()
+        old_status = lead.status
+
         serializer = RawLeadStatusSerializer(lead, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response(RawLeadSerializer(lead).data, status=status.HTTP_200_OK)
+        # Promote to File when status changes to VALID
+        new_status = serializer.validated_data.get('status')
+        if new_status == 'VALID' and old_status != 'VALID':
+            file = lead.promote_to_file(changed_by=request.user)
+            if file:
+                return Response({
+                    **RawLeadSerializer(lead).data,
+                    'promoted_to_file': file.id
+                })
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(RawLeadSerializer(lead).data)
+
+    @action(detail=False, methods=['get'])
+    def campaign_performance(self, request):
+        """Get campaign performance stats grouped by source, with lead owners nested."""
+        user = request.user
+        time_filter = request.query_params.get('period', 'all')
+
+        if user.is_staff or user.is_superuser:
+            qs = RawLead.objects.filter(assigned_to__isnull=False)
+        else:
+            qs = RawLead.objects.filter(Q(source__owner=user) | Q(assigned_to=user), assigned_to__isnull=False)
+
+        now = timezone.now()
+        if time_filter == 'today':
+            qs = qs.filter(assigned_at__date=now.date())
+        elif time_filter == 'week':
+            qs = qs.filter(assigned_at__gte=now - timedelta(days=7))
+
+        # Get per-user stats
+        user_stats = qs.values(
+            'source__id', 'source__name',
+            'assigned_to__id', 'assigned_to__first_name', 'assigned_to__last_name', 'assigned_to__username'
+        ).annotate(
+            total=Count('id'),
+            pending=Count(Case(When(status='PENDING', then=1), output_field=IntegerField())),
+            valid=Count(Case(When(status='VALID', then=1), output_field=IntegerField())),
+            spam=Count(Case(When(status='SPAM', then=1), output_field=IntegerField())),
+            last_assigned_at=Max('assigned_at')
+        )
+
+        # Group by campaign
+        campaigns = {}
+        for s in user_stats:
+            cid = s['source__id']
+            if cid not in campaigns:
+                campaigns[cid] = {
+                    'campaign_id': cid, 'campaign_name': s['source__name'],
+                    'total': 0, 'pending': 0, 'valid': 0, 'spam': 0,
+                    'last_assigned_at': None, 'lead_owners': []
+                }
+
+            c = campaigns[cid]
+            valid, spam = s['valid'] or 0, s['spam'] or 0
+            c['total'] += s['total']
+            c['pending'] += s['pending']
+            c['valid'] += valid
+            c['spam'] += spam
+
+            if s['last_assigned_at'] and (c['last_assigned_at'] is None or s['last_assigned_at'] > c['last_assigned_at']):
+                c['last_assigned_at'] = s['last_assigned_at']
+
+            owner_name = f"{s['assigned_to__first_name'] or ''} {s['assigned_to__last_name'] or ''}".strip() or s['assigned_to__username'] or '-'
+            reviewed = valid + spam
+            c['lead_owners'].append({
+                'id': s['assigned_to__id'], 'name': owner_name,
+                'total': s['total'], 'pending': s['pending'], 'valid': valid, 'spam': spam,
+                'quality': round((valid / reviewed) * 100) if reviewed > 0 else 0
+            })
+
+        # Calculate campaign-level quality and format
+        result = []
+        for c in campaigns.values():
+            reviewed = c['valid'] + c['spam']
+            c['quality'] = round((c['valid'] / reviewed) * 100) if reviewed > 0 else 0
+            c['last_assigned_at'] = c['last_assigned_at'].isoformat() if c['last_assigned_at'] else None
+            result.append(c)
+
+        result.sort(key=lambda x: x['last_assigned_at'] or '', reverse=True)
+        return Response({'campaigns': result})
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def lead_ingestion(request):
-    """
-    Lead ingestion endpoint with auto source creation.
-    POST /api/leads/ingest/
-    Body: {
-        "source_name": "Facebook Campaign 1",
-        "source_type": "META_ADS",
-        "phone": "+1234567890",
-        "email": "test@example.com",
-        "name": "John Doe",
-        "intent": "Looking for a loan"
-    }
-    """
+    """Lead ingestion endpoint with auto source creation."""
     serializer = LeadIngestionSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    if serializer.is_valid():
-        data = serializer.validated_data
+    data = serializer.validated_data
 
-        with transaction.atomic():
-            # Get or create source
-            source, created = Source.objects.get_or_create(
-                name=data['source_name'],
-                defaults={
-                    'source_type': data.get('source_type', 'OTHER')
-                }
-            )
+    with transaction.atomic():
+        source, created = Source.objects.get_or_create(
+            name=data['source_name'],
+            defaults={'source_type': data.get('source_type', 'OTHER')}
+        )
 
-            # Create lead
-            lead_data = {
-                'source': source,
-                'phone': data['phone'],
-                'email': data.get('email', ''),
-                'name': data.get('name', ''),
-                'intent': data.get('intent', '')
-            }
+        lead_data = {
+            'source': source, 'phone': data['phone'],
+            'email': data.get('email', ''), 'name': data.get('name', ''), 'intent': data.get('intent', '')
+        }
+        if 'creation_time' in data:
+            lead_data['creation_time'] = data['creation_time']
 
-            # Use creation_time from payload if provided
-            if 'creation_time' in data:
-                lead_data['creation_time'] = data['creation_time']
+        lead = RawLead.objects.create(**lead_data)
 
-            lead = RawLead.objects.create(**lead_data)
-
-        return Response({
-            'message': 'Lead created successfully',
-            'lead_id': lead.id,
-            'source_created': created
-        }, status=status.HTTP_201_CREATED)
-
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response({
+        'message': 'Lead created successfully', 'lead_id': lead.id, 'source_created': created
+    }, status=status.HTTP_201_CREATED)
